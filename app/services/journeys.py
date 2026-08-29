@@ -15,8 +15,6 @@ class JourneyService:
 
     def create(self, user: User, payload: JourneyCreate) -> Journey:
         values = payload.model_dump(mode="python")
-        if values["cover_media_url"] is not None:
-            values["cover_media_url"] = str(values["cover_media_url"])
         return self.journeys.create(user_id=user.id, values=values)
 
     def list(self, user: User) -> list[Journey]:
@@ -31,8 +29,6 @@ class JourneyService:
     def update(self, user: User, journey_id: uuid.UUID, payload: JourneyUpdate) -> Journey:
         journey = self.get(user, journey_id)
         values = payload.model_dump(exclude_unset=True, mode="python")
-        if values.get("cover_media_url") is not None:
-            values["cover_media_url"] = str(values["cover_media_url"])
         start_date = values.get("start_date", journey.start_date)
         end_date = values.get("end_date", journey.end_date)
         if end_date < start_date:
