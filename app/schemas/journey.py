@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 
 from pydantic import Field, HttpUrl, field_validator, model_validator
@@ -11,7 +12,6 @@ class JourneyBase(OrmSchema):
     country: str = Field(min_length=1, max_length=100)
     start_date: date
     end_date: date
-    cover_media_url: HttpUrl | None = None
     description: str | None = None
 
     @field_validator("title", "destination", "country")
@@ -39,7 +39,6 @@ class JourneyUpdate(OrmSchema):
     country: str | None = Field(default=None, min_length=1, max_length=100)
     start_date: date | None = None
     end_date: date | None = None
-    cover_media_url: HttpUrl | None = None
     description: str | None = None
 
     @field_validator("title", "destination", "country")
@@ -65,4 +64,6 @@ class JourneyUpdate(OrmSchema):
 
 
 class JourneyRead(JourneyBase, IdentifiedSchema):
+    cover_media_id: uuid.UUID | None
+    cover_media_url: HttpUrl | None = None
     updated_at: datetime

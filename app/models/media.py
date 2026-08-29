@@ -5,12 +5,14 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
     Numeric,
+    String,
     Text,
     Uuid,
     func,
@@ -47,8 +49,13 @@ class Media(Base):
     type: Mapped[MediaType] = mapped_column(
         Enum(MediaType, name="media_type", native_enum=True), nullable=False
     )
-    url: Mapped[str] = mapped_column(Text, nullable=False)
-    thumbnail_url: Mapped[str | None] = mapped_column(Text)
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    original_filename: Mapped[str | None] = mapped_column(String(255))
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    thumbnail_storage_key: Mapped[str | None] = mapped_column(Text)
     captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
@@ -57,5 +64,5 @@ class Media(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    journey: Mapped["Journey"] = relationship(back_populates="media")
+    journey: Mapped["Journey"] = relationship(back_populates="media", foreign_keys=[journey_id])
     memory: Mapped["Memory | None"] = relationship(back_populates="media")
