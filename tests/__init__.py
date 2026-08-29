@@ -1,0 +1,1 @@
+"""Vialbum API test suite."""
