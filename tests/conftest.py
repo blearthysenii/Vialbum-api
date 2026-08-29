@@ -14,6 +14,36 @@ from app.core.config import get_settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.storage.service import StorageService, get_storage_service  # noqa: E402
+
+
+class FakeObjectStorage:
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.fail_upload = False
+        self.fail_delete = False
+
+    def reset(self) -> None:
+        self.objects.clear()
+        self.fail_upload = False
+        self.fail_delete = False
+
+    def upload(self, *, key: str, body: object, content_type: str, content_length: int) -> None:
+        if self.fail_upload:
+            raise RuntimeError("simulated upload failure")
+        self.objects[key] = body.read()  # type: ignore[attr-defined]
+
+    def delete(self, *, key: str) -> None:
+        if self.fail_delete:
+            raise RuntimeError("simulated delete failure")
+        self.objects.pop(key, None)
+
+    def create_read_url(self, *, key: str, expires_in: int) -> str:
+        return f"https://private-storage.test/{key}?expires={expires_in}"
+
+
+fake_object_storage = FakeObjectStorage()
+fake_storage_service = StorageService(fake_object_storage, read_url_expires_in=900)
 
 test_engine = create_engine(
     "sqlite://",
@@ -35,11 +65,13 @@ def override_get_db() -> Generator[Session, None, None]:
 
 
 app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[get_storage_service] = lambda: fake_storage_service
 
 
 @pytest.fixture(autouse=True)
 def isolated_database() -> Generator[None, None, None]:
     get_settings.cache_clear()
+    fake_object_storage.reset()
     Base.metadata.create_all(test_engine)
     yield
     Base.metadata.drop_all(test_engine)
@@ -48,3 +80,8 @@ def isolated_database() -> Generator[None, None, None]:
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
+
+
+@pytest.fixture
+def fake_storage() -> FakeObjectStorage:
+    return fake_object_storage
