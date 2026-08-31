@@ -31,6 +31,13 @@ class MediaRepository:
         statement = select(Media).where(Media.id == media_id, Media.journey_id == journey_id)
         return self.session.scalar(statement)
 
+    def update(self, media: Media, values: dict[str, Any]) -> Media:
+        for field, value in values.items():
+            setattr(media, field, value)
+        self.session.commit()
+        self.session.refresh(media)
+        return media
+
     def delete(self, media: Media, journey: Journey) -> None:
         if journey.cover_media_id == media.id:
             journey.cover_media_id = None
