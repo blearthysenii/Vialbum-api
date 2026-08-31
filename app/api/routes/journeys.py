@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, Form, Response, UploadFile, status
 from app.api.dependencies import CurrentUser, DatabaseSession, MediaStorage
 from app.core.config import get_settings
 from app.schemas.journey import JourneyCreate, JourneyRead, JourneyUpdate
-from app.schemas.media import MediaRead
+from app.schemas.media import MediaRead, MediaUpdate
 from app.services.journeys import JourneyService
 from app.services.media import MediaService
 
@@ -115,6 +115,20 @@ def list_journey_media(
     return [
         media_service.serialize(media) for media in media_service.list(current_user, journey_id)
     ]
+
+
+@router.patch("/{journey_id}/media/{media_id}", response_model=MediaRead)
+def update_journey_media(
+    journey_id: uuid.UUID,
+    media_id: uuid.UUID,
+    payload: MediaUpdate,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+    storage: MediaStorage,
+) -> MediaRead:
+    media_service = MediaService(session, storage)
+    media = media_service.update(current_user, journey_id, media_id, payload)
+    return media_service.serialize(media)
 
 
 @router.delete("/{journey_id}/media/{media_id}", status_code=status.HTTP_204_NO_CONTENT)
