@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import Field, HttpUrl
+from pydantic import ConfigDict, Field, HttpUrl
 
 from app.models.media import MediaType
 from app.schemas.common import IdentifiedSchema, OrmSchema
@@ -19,6 +19,7 @@ class MediaBase(OrmSchema):
     latitude: Decimal | None = Field(default=None, ge=-90, le=90, max_digits=9, decimal_places=6)
     longitude: Decimal | None = Field(default=None, ge=-180, le=180, max_digits=9, decimal_places=6)
     sort_order: int = Field(default=0, ge=0)
+    caption: str | None = None
 
 
 class MediaRead(MediaBase, IdentifiedSchema):
@@ -26,3 +27,9 @@ class MediaRead(MediaBase, IdentifiedSchema):
     memory_id: uuid.UUID | None
     url: HttpUrl
     thumbnail_url: HttpUrl | None = None
+
+
+class MediaUpdate(OrmSchema):
+    model_config = ConfigDict(extra="forbid")
+
+    caption: str | None = None
