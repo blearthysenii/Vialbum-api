@@ -160,3 +160,62 @@ def test_storage_delete_failure_preserves_metadata(
     assert response.status_code == 503
     fake_storage.fail_delete = False
     assert len(client.get(f"/journeys/{journey['id']}/media", headers=headers).json()) == 1
+
+
+def test_caption_is_returned_and_can_be_added_edited_and_cleared(client: TestClient) -> None:
+    headers, journey = setup_owner(client)
+    media = upload_photo(client, journey["id"], headers).json()
+    assert media["caption"] is None
+    url = f"/journeys/{journey['id']}/media/{media['id']}"
+
+    added = client.patch(url, json={"caption": "Sunset over the water"}, headers=headers)
+    assert added.status_code == 200
+    assert added.json()["caption"] == "Sunset over the water"
+    listed = client.get(f"/journeys/{journey['id']}/media", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json()[0]["caption"] == "Sunset over the water"
+
+    edited = client.patch(url, json={"caption": "Our last evening"}, headers=headers)
+    assert edited.status_code == 200
+    assert edited.json()["caption"] == "Our last evening"
+
+    cleared = client.patch(url, json={"caption": None}, headers=headers)
+    assert cleared.status_code == 200
+    assert cleared.json()["caption"] is None
+    assert (
+        client.get(f"/journeys/{journey['id']}/media", headers=headers).json()[0]["caption"] is None
+    )
+
+
+def test_caption_update_requires_authentication(client: TestClient) -> None:
+    headers, journey = setup_owner(client)
+    media = upload_photo(client, journey["id"], headers).json()
+    url = f"/journeys/{journey['id']}/media/{media['id']}"
+    assert client.patch(url, json={"caption": "Not allowed"}).status_code == 401
+    listed = client.get(f"/journeys/{journey['id']}/media", headers=headers).json()
+    assert listed[0]["caption"] is None
+
+
+def test_caption_update_is_journey_and_owner_scoped(client: TestClient) -> None:
+    owner, journey = setup_owner(client)
+    media = upload_photo(client, journey["id"], owner).json()
+    url = f"/journeys/{journey['id']}/media/{media['id']}"
+
+    register_user(client, email="caption-intruder@example.com")
+    intruder = auth_headers(login_user(client, email="caption-intruder@example.com"))
+    assert client.patch(url, json={"caption": "Stolen"}, headers=intruder).status_code == 404
+
+    other_journey = client.post("/journeys", json=journey_payload("Other"), headers=owner).json()
+    wrong_url = f"/journeys/{other_journey['id']}/media/{media['id']}"
+    assert client.patch(wrong_url, json={"caption": "Moved"}, headers=owner).status_code == 404
+    assert (
+        client.get(f"/journeys/{journey['id']}/media", headers=owner).json()[0]["caption"] is None
+    )
+
+
+def test_media_update_rejects_unrelated_fields(client: TestClient) -> None:
+    headers, journey = setup_owner(client)
+    media = upload_photo(client, journey["id"], headers).json()
+    url = f"/journeys/{journey['id']}/media/{media['id']}"
+    response = client.patch(url, json={"storage_key": "unsafe"}, headers=headers)
+    assert response.status_code == 422
