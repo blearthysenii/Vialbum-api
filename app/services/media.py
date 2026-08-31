@@ -15,7 +15,7 @@ from app.models.user import User
 from app.repositories.journeys import JourneyRepository
 from app.repositories.media import MediaRepository
 from app.schemas.journey import JourneyRead
-from app.schemas.media import MediaRead
+from app.schemas.media import MediaRead, MediaUpdate
 from app.storage.service import StorageOperationError, StorageService
 
 _IMAGE_SIGNATURES = {
@@ -131,6 +131,12 @@ class MediaService:
             raise NotFoundError("Photo not found")
         return media
 
+    def update(
+        self, user: User, journey_id: uuid.UUID, media_id: uuid.UUID, payload: MediaUpdate
+    ) -> Media:
+        media = self.get(user, journey_id, media_id)
+        return self.media.update(media, payload.model_dump(exclude_unset=True))
+
     def delete(self, user: User, journey_id: uuid.UUID, media_id: uuid.UUID) -> None:
         journey = self._journey(user, journey_id)
         media = self.get(user, journey_id, media_id)
@@ -170,6 +176,7 @@ class MediaService:
             latitude=media.latitude,
             longitude=media.longitude,
             sort_order=media.sort_order,
+            caption=media.caption,
             url=url,
             thumbnail_url=thumbnail_url,
         )
