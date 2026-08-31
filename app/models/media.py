@@ -56,6 +56,11 @@ class Media(Base):
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     thumbnail_storage_key: Mapped[str | None] = mapped_column(Text)
+    display_storage_key: Mapped[str | None] = mapped_column(Text)
+    deletion_pending_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
+    caption: Mapped[str | None] = mapped_column(Text)
     captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
