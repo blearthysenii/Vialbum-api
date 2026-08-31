@@ -33,6 +33,10 @@ class JourneyService:
         end_date = values.get("end_date", journey.end_date)
         if end_date < start_date:
             raise InvalidInputError("end_date must be on or after start_date")
+        latitude = values.get("latitude", journey.latitude)
+        longitude = values.get("longitude", journey.longitude)
+        if (latitude is None) != (longitude is None):
+            raise InvalidInputError("latitude and longitude must be provided together")
         return self.journeys.update(journey, values)
 
     def delete(self, user: User, journey_id: uuid.UUID) -> None:

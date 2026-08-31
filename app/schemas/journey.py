@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import Field, HttpUrl, field_validator, model_validator
 
@@ -13,6 +14,8 @@ class JourneyBase(OrmSchema):
     start_date: date
     end_date: date
     description: str | None = None
+    latitude: Decimal | None = Field(default=None, ge=-90, le=90, max_digits=9, decimal_places=6)
+    longitude: Decimal | None = Field(default=None, ge=-180, le=180, max_digits=9, decimal_places=6)
 
     @field_validator("title", "destination", "country")
     @classmethod
@@ -26,6 +29,8 @@ class JourneyBase(OrmSchema):
     def validate_date_order(self) -> "JourneyBase":
         if self.end_date < self.start_date:
             raise ValueError("end_date must be on or after start_date")
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
         return self
 
 
@@ -40,6 +45,8 @@ class JourneyUpdate(OrmSchema):
     start_date: date | None = None
     end_date: date | None = None
     description: str | None = None
+    latitude: Decimal | None = Field(default=None, ge=-90, le=90, max_digits=9, decimal_places=6)
+    longitude: Decimal | None = Field(default=None, ge=-180, le=180, max_digits=9, decimal_places=6)
 
     @field_validator("title", "destination", "country")
     @classmethod
