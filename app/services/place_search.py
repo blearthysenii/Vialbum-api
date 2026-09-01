@@ -1,5 +1,6 @@
 import json
 from collections.abc import Callable
+from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -75,6 +76,8 @@ class GeoapifyPlaceProvider:
         if not all((provider_id, display_name, name, country, country_code)):
             return None
         try:
+            normalized_latitude = Decimal(str(latitude)).quantize(Decimal("0.000001"))
+            normalized_longitude = Decimal(str(longitude)).quantize(Decimal("0.000001"))
             return PlaceSearchResult(
                 provider="geoapify",
                 provider_place_id=str(provider_id),
@@ -86,10 +89,10 @@ class GeoapifyPlaceProvider:
                 region=properties.get("state"),
                 country=str(country),
                 country_code=str(country_code),
-                latitude=latitude,
-                longitude=longitude,
+                latitude=normalized_latitude,
+                longitude=normalized_longitude,
             )
-        except (TypeError, ValueError):
+        except (InvalidOperation, TypeError, ValueError):
             return None
 
 

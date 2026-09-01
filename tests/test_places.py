@@ -101,8 +101,8 @@ def test_geoapify_provider_normalizes_valid_features() -> None:
                     "state": "Lombardy",
                     "country": "Italy",
                     "country_code": "it",
-                    "lat": 45.4642,
-                    "lon": 9.19,
+                    "lat": 45.4642035,
+                    "lon": 9.1900127,
                     "raw": "must not escape",
                 }
             }
@@ -113,7 +113,8 @@ def test_geoapify_provider_normalizes_valid_features() -> None:
     )
     result = provider.search("Milan", 5)
     assert result[0].country_code == "IT"
-    assert result[0].latitude == Decimal("45.4642")
+    assert result[0].latitude == Decimal("45.464204")
+    assert result[0].longitude == Decimal("9.190013")
     assert "raw" not in result[0].model_dump()
 
 
