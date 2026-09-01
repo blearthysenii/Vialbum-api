@@ -145,3 +145,62 @@ def test_delete_memory_preserves_linked_photo_and_cover(client):
         client.get(f"/journeys/{journey['id']}", headers=headers).json()["cover_media_id"]
         == photo["id"]
     )
+
+
+PLACE_SELECTION = {
+    "provider": "geoapify",
+    "provider_place_id": "memory-medina",
+    "display_name": "Medina, Saudi Arabia",
+    "name": "Medina",
+    "locality": "Medina",
+    "region": "Al Madinah",
+    "country": "Saudi Arabia",
+    "country_code": "SA",
+    "latitude": "24.468600",
+    "longitude": "39.614200",
+}
+
+
+def test_memory_place_assignment_override_and_clear(client):
+    headers, _, url = setup(client)
+    created = client.post(url, json={**PAYLOAD, "place": PLACE_SELECTION}, headers=headers)
+    assert created.status_code == 201
+    memory = created.json()
+    assert memory["place_id"] == memory["place"]["id"]
+    assert memory["latitude"] == "41.123456"
+    updated = client.patch(
+        f"{url}/{memory['id']}",
+        json={"place": PLACE_SELECTION, "latitude": "24.500000", "longitude": "39.700000"},
+        headers=headers,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["latitude"] == "24.500000"
+    assert updated.json()["place"]["latitude"] == "24.468600"
+    cleared = client.patch(f"{url}/{memory['id']}", json={"place": None}, headers=headers)
+    assert cleared.status_code == 200
+    assert cleared.json()["place_id"] is None
+    assert cleared.json()["latitude"] is None
+    assert cleared.json()["longitude"] is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{"latitude": "20.000000"}, {"longitude": "20.000000"}],
+)
+def test_memory_rejects_incomplete_coordinate_pairs(client, body):
+    headers, _, url = setup(client)
+    assert (
+        client.post(
+            url, json={**PAYLOAD, "latitude": None, "longitude": None, **body}, headers=headers
+        ).status_code
+        == 422
+    )
+    memory = client.post(url, json=PAYLOAD, headers=headers).json()
+    assert (
+        client.patch(
+            f"{url}/{memory['id']}",
+            json={**body, "longitude" if "latitude" in body else "latitude": None},
+            headers=headers,
+        ).status_code
+        == 422
+    )
