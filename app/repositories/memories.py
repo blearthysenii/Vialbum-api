@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.memory import Memory
 
@@ -21,6 +21,7 @@ class MemoryRepository:
     def list_for_journey(self, journey_id: uuid.UUID) -> list[Memory]:
         statement = (
             select(Memory)
+            .options(selectinload(Memory.place))
             .where(Memory.journey_id == journey_id)
             .order_by(Memory.memory_date.asc(), Memory.created_at.asc(), Memory.id.asc())
         )
@@ -28,7 +29,9 @@ class MemoryRepository:
 
     def get_for_journey(self, journey_id: uuid.UUID, memory_id: uuid.UUID) -> Memory | None:
         return self.session.scalar(
-            select(Memory).where(Memory.journey_id == journey_id, Memory.id == memory_id)
+            select(Memory)
+            .options(selectinload(Memory.place))
+            .where(Memory.journey_id == journey_id, Memory.id == memory_id)
         )
 
     def update(self, memory: Memory, values: dict[str, Any]) -> Memory:
