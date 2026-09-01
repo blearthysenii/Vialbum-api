@@ -67,13 +67,21 @@ def test_map_returns_owned_journey_memory_and_photo(client: TestClient) -> None:
         "subtitle": "Medina, Saudi Arabia",
         "date": "2025-03-12",
         "thumbnail_url": None,
+        "thumbnail_revision": None,
         "caption": None,
+        "location": None,
+        "journey_start_date": "2025-03-12",
+        "journey_end_date": "2025-03-19",
+        "memory_id": None,
+        "memory_title": None,
     }
     assert by_type["memory"]["id"] == created_memory["id"]
     assert by_type["memory"]["caption"] == "An afternoon walk"
     assert by_type["photo"]["id"] == created_photo["id"]
     assert by_type["photo"]["thumbnail_url"].startswith("https://private-storage.test/")
     assert by_type["photo"]["date"] == "2025-03-15"
+    assert by_type["photo"]["journey_start_date"] == "2025-03-12"
+    assert by_type["photo"]["journey_end_date"] == "2025-03-19"
 
 
 def test_journey_uses_presentation_only_center_from_children(client: TestClient) -> None:
@@ -123,6 +131,43 @@ def test_journey_coordinates_must_be_complete_and_valid(client: TestClient) -> N
         ).status_code
         == 422
     )
+
+
+def test_map_can_skip_eager_thumbnail_signing(client: TestClient) -> None:
+    headers, journey = owner(client)
+    created_photo = photo(client, headers, journey["id"]).json()
+
+    response = client.get("/map/items?include_thumbnails=false", headers=headers)
+
+    assert response.status_code == 200
+    assert all(item["thumbnail_url"] is None for item in response.json())
+    thumbnail = client.get(f"/map/items/photo/{created_photo['id']}/thumbnail", headers=headers)
+    assert thumbnail.status_code == 200
+    assert thumbnail.json()["thumbnail_url"].startswith("https://private-storage.test/")
+
+
+def test_map_thumbnail_is_ownership_protected(client: TestClient) -> None:
+    first, journey = owner(client, "thumbnail-owner@example.com")
+    created_photo = photo(client, first, journey["id"]).json()
+    second, _ = owner(client, "thumbnail-other@example.com")
+
+    response = client.get(f"/map/items/photo/{created_photo['id']}/thumbnail", headers=second)
+
+    assert response.status_code == 404
+
+
+def test_memory_map_thumbnail_is_empty(client: TestClient) -> None:
+    headers, journey = owner(client)
+    created_memory = memory(client, headers, journey["id"]).json()
+
+    response = client.get(f"/map/items/memory/{created_memory['id']}/thumbnail", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json() == {"thumbnail_url": None}
+
+    other, _ = owner(client, "memory-thumbnail-other@example.com")
+    denied = client.get(f"/map/items/memory/{created_memory['id']}/thumbnail", headers=other)
+    assert denied.status_code == 404
     assert (
         client.post(
             "/journeys",
