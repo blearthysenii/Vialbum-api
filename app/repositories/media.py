@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.journey import Journey
 from app.models.media import Media
@@ -22,13 +22,18 @@ class MediaRepository:
     def list_for_journey(self, journey_id: uuid.UUID) -> list[Media]:
         statement = (
             select(Media)
+            .options(selectinload(Media.place))
             .where(Media.journey_id == journey_id)
             .order_by(Media.sort_order.asc(), Media.created_at.asc(), Media.id.asc())
         )
         return list(self.session.scalars(statement))
 
     def get_for_journey(self, media_id: uuid.UUID, journey_id: uuid.UUID) -> Media | None:
-        statement = select(Media).where(Media.id == media_id, Media.journey_id == journey_id)
+        statement = (
+            select(Media)
+            .options(selectinload(Media.place))
+            .where(Media.id == media_id, Media.journey_id == journey_id)
+        )
         return self.session.scalar(statement)
 
     def update(self, media: Media, values: dict[str, Any]) -> Media:

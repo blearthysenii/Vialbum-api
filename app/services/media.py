@@ -14,6 +14,8 @@ from app.models.media import Media, MediaType
 from app.models.user import User
 from app.repositories.journeys import JourneyRepository
 from app.repositories.media import MediaRepository
+from app.repositories.memories import MemoryRepository
+from app.repositories.places import PlaceRepository
 from app.schemas.journey import JourneyRead
 from app.schemas.media import MediaRead, MediaUpdate
 from app.storage.service import StorageOperationError, StorageService
@@ -57,6 +59,8 @@ class MediaService:
         self.storage = storage
         self.journeys = JourneyRepository(session)
         self.media = MediaRepository(session)
+        self.memories = MemoryRepository(session)
+        self.places = PlaceRepository(session)
 
     def _journey(self, user: User, journey_id: uuid.UUID) -> Journey:
         journey = self.journeys.get_for_user(journey_id, user.id)
@@ -78,6 +82,8 @@ class MediaService:
         longitude: Decimal | None,
     ) -> Media:
         self._journey(user, journey_id)
+        if (latitude is None) != (longitude is None):
+            raise InvalidInputError("latitude and longitude must be provided together")
         maximum = get_settings().media_max_upload_bytes
         if not body:
             raise InvalidInputError("The selected photo is empty")
@@ -135,7 +141,25 @@ class MediaService:
         self, user: User, journey_id: uuid.UUID, media_id: uuid.UUID, payload: MediaUpdate
     ) -> Media:
         media = self.get(user, journey_id, media_id)
-        return self.media.update(media, payload.model_dump(exclude_unset=True))
+        values = payload.model_dump(exclude_unset=True, mode="python", exclude={"place"})
+        if "place" in payload.model_fields_set:
+            if payload.place is None:
+                values.update(place_id=None, latitude=None, longitude=None)
+            else:
+                place = self.places.get_or_create(payload.place)
+                values.update(
+                    place_id=place.id,
+                    latitude=values.get("latitude", place.latitude),
+                    longitude=values.get("longitude", place.longitude),
+                )
+        if "memory_id" in values and values["memory_id"] is not None:
+            if self.memories.get_for_journey(journey_id, values["memory_id"]) is None:
+                raise InvalidInputError("Memory must belong to this journey")
+        latitude = values.get("latitude", media.latitude)
+        longitude = values.get("longitude", media.longitude)
+        if (latitude is None) != (longitude is None):
+            raise InvalidInputError("latitude and longitude must be provided together")
+        return self.media.update(media, values)
 
     def delete(self, user: User, journey_id: uuid.UUID, media_id: uuid.UUID) -> None:
         journey = self._journey(user, journey_id)
@@ -166,6 +190,8 @@ class MediaService:
             created_at=media.created_at,
             journey_id=media.journey_id,
             memory_id=media.memory_id,
+            place_id=media.place_id,
+            place=media.place,
             type=media.type,
             original_filename=media.original_filename,
             mime_type=media.mime_type,
