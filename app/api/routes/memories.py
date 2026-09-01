@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Response, status
 
 from app.api.dependencies import CurrentUser, DatabaseSession
-from app.schemas.memory import MemoryBase, MemoryRead, MemoryUpdate
+from app.schemas.memory import MemoryCreate, MemoryRead, MemoryUpdate
 from app.services.memories import MemoryService
 
 router = APIRouter(prefix="/journeys/{journey_id}/memories", tags=["memories"])
@@ -11,7 +11,10 @@ router = APIRouter(prefix="/journeys/{journey_id}/memories", tags=["memories"])
 
 @router.post("", response_model=MemoryRead, status_code=status.HTTP_201_CREATED)
 def create_memory(
-    journey_id: uuid.UUID, payload: MemoryBase, current_user: CurrentUser, session: DatabaseSession
+    journey_id: uuid.UUID,
+    payload: MemoryCreate,
+    current_user: CurrentUser,
+    session: DatabaseSession,
 ) -> MemoryRead:
     return MemoryRead.model_validate(
         MemoryService(session).create(current_user, journey_id, payload)

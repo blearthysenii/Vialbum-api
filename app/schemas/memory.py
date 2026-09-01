@@ -5,6 +5,7 @@ from decimal import Decimal
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.common import IdentifiedSchema, OrmSchema
+from app.schemas.place import PlaceRead, PlaceSelection
 
 
 class MemoryBase(OrmSchema):
@@ -23,13 +24,21 @@ class MemoryBase(OrmSchema):
     latitude: Decimal | None = Field(default=None, ge=-90, le=90, max_digits=9, decimal_places=6)
     longitude: Decimal | None = Field(default=None, ge=-180, le=180, max_digits=9, decimal_places=6)
 
+    @model_validator(mode="after")
+    def validate_coordinate_pair(self) -> "MemoryBase":
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
+        return self
+
 
 class MemoryCreate(MemoryBase):
-    journey_id: uuid.UUID
+    place: PlaceSelection | None = None
 
 
 class MemoryRead(MemoryBase, IdentifiedSchema):
     journey_id: uuid.UUID
+    place_id: uuid.UUID | None
+    place: PlaceRead | None = None
     updated_at: datetime
 
 
@@ -41,6 +50,7 @@ class MemoryUpdate(OrmSchema):
     memory_date: date | None = None
     latitude: Decimal | None = Field(default=None, ge=-90, le=90, max_digits=9, decimal_places=6)
     longitude: Decimal | None = Field(default=None, ge=-180, le=180, max_digits=9, decimal_places=6)
+    place: PlaceSelection | None = None
 
     @field_validator("title")
     @classmethod
