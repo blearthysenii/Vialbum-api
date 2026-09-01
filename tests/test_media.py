@@ -219,3 +219,96 @@ def test_media_update_rejects_unrelated_fields(client: TestClient) -> None:
     url = f"/journeys/{journey['id']}/media/{media['id']}"
     response = client.patch(url, json={"storage_key": "unsafe"}, headers=headers)
     assert response.status_code == 422
+
+
+PLACE_SELECTION = {
+    "provider": "geoapify",
+    "provider_place_id": "photo-medina",
+    "display_name": "Medina, Saudi Arabia",
+    "name": "Medina",
+    "locality": "Medina",
+    "region": "Al Madinah",
+    "country": "Saudi Arabia",
+    "country_code": "SA",
+    "latitude": "24.468600",
+    "longitude": "39.614200",
+}
+
+
+def test_photo_location_date_and_memory_updates(client: TestClient) -> None:
+    headers, journey = setup_owner(client)
+    photo = upload_photo(client, journey["id"], headers).json()
+    memory_url = f"/journeys/{journey['id']}/memories"
+    first = client.post(
+        memory_url, json={"title": "First", "memory_date": "2025-03-14"}, headers=headers
+    ).json()
+    second = client.post(
+        memory_url, json={"title": "Second", "memory_date": "2025-03-15"}, headers=headers
+    ).json()
+    url = f"/journeys/{journey['id']}/media/{photo['id']}"
+
+    assigned = client.patch(
+        url,
+        json={
+            "place": PLACE_SELECTION,
+            "latitude": "24.500000",
+            "longitude": "39.700000",
+            "captured_at": "2025-03-18T15:30:00Z",
+            "memory_id": first["id"],
+        },
+        headers=headers,
+    )
+    assert assigned.status_code == 200
+    body = assigned.json()
+    assert body["place_id"] == body["place"]["id"]
+    assert body["latitude"] == "24.500000"
+    assert body["place"]["latitude"] == "24.468600"
+    assert body["captured_at"].startswith("2025-03-18T15:30:00")
+    assert body["memory_id"] == first["id"]
+
+    changed = client.patch(url, json={"memory_id": second["id"]}, headers=headers)
+    assert changed.status_code == 200 and changed.json()["memory_id"] == second["id"]
+    removed = client.patch(url, json={"memory_id": None}, headers=headers)
+    assert removed.status_code == 200 and removed.json()["memory_id"] is None
+    cleared = client.patch(url, json={"place": None}, headers=headers)
+    assert cleared.status_code == 200
+    assert cleared.json()["place_id"] is None
+    assert cleared.json()["latitude"] is None
+
+
+def test_photo_custom_coordinates_and_exif_correction(client: TestClient) -> None:
+    headers, journey = setup_owner(client)
+    photo = upload_photo(client, journey["id"], headers).json()
+    url = f"/journeys/{journey['id']}/media/{photo['id']}"
+    custom = client.patch(
+        url, json={"latitude": "10.000000", "longitude": "20.000000"}, headers=headers
+    )
+    assert custom.status_code == 200
+    corrected = client.patch(
+        url, json={"latitude": "11.000000", "longitude": "21.000000"}, headers=headers
+    )
+    assert corrected.status_code == 200
+    assert corrected.json()["latitude"] == "11.000000"
+
+
+@pytest.mark.parametrize(
+    "body", [{"latitude": 91, "longitude": 20}, {"latitude": 20}, {"longitude": 20}]
+)
+def test_photo_rejects_invalid_or_incomplete_coordinates(client: TestClient, body: dict) -> None:
+    headers, journey = setup_owner(client)
+    photo = upload_photo(client, journey["id"], headers).json()
+    url = f"/journeys/{journey['id']}/media/{photo['id']}"
+    assert client.patch(url, json=body, headers=headers).status_code == 422
+
+
+def test_photo_rejects_memory_from_another_journey_and_user(client: TestClient) -> None:
+    headers, journey = setup_owner(client)
+    photo = upload_photo(client, journey["id"], headers).json()
+    other_journey = client.post("/journeys", json=journey_payload("Other"), headers=headers).json()
+    memory = client.post(
+        f"/journeys/{other_journey['id']}/memories",
+        json={"title": "Elsewhere", "memory_date": "2025-03-14"},
+        headers=headers,
+    ).json()
+    url = f"/journeys/{journey['id']}/media/{photo['id']}"
+    assert client.patch(url, json={"memory_id": memory["id"]}, headers=headers).status_code == 422
