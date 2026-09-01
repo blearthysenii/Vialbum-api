@@ -12,6 +12,7 @@ from app.models.mixins import TimestampMixin
 if TYPE_CHECKING:
     from app.models.journey import Journey
     from app.models.media import Media
+    from app.models.place import Place
 
 
 class Memory(TimestampMixin, Base):
@@ -19,11 +20,18 @@ class Memory(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_memories_latitude"),
         CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_memories_longitude"),
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)",
+            name="ck_memories_coordinate_pair",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     journey_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("journeys.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    place_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("places.id", ondelete="SET NULL"), index=True
     )
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     caption: Mapped[str | None] = mapped_column(Text)
@@ -32,4 +40,5 @@ class Memory(TimestampMixin, Base):
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
 
     journey: Mapped["Journey"] = relationship(back_populates="memories")
+    place: Mapped["Place | None"] = relationship(back_populates="memories")
     media: Mapped[list["Media"]] = relationship(back_populates="memory", passive_deletes=True)

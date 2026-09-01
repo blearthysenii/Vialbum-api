@@ -10,6 +10,8 @@ from app.models.mixins import TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.journey import Journey
+    from app.models.media import Media
+    from app.models.memory import Memory
 
 
 class Place(TimestampMixin, Base):
@@ -33,3 +35,5 @@ class Place(TimestampMixin, Base):
     longitude: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
 
     journeys: Mapped[list["Journey"]] = relationship(back_populates="place")
+    memories: Mapped[list["Memory"]] = relationship(back_populates="place")
+    media: Mapped[list["Media"]] = relationship(back_populates="place")

@@ -24,6 +24,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.journey import Journey
     from app.models.memory import Memory
+    from app.models.place import Place
 
 
 class MediaType(StrEnum):
@@ -36,6 +37,9 @@ class Media(Base):
     __table_args__ = (
         CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_media_latitude"),
         CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_media_longitude"),
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)", name="ck_media_coordinate_pair"
+        ),
         CheckConstraint("sort_order >= 0", name="ck_media_sort_order"),
     )
 
@@ -45,6 +49,9 @@ class Media(Base):
     )
     memory_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("memories.id", ondelete="SET NULL"), index=True
+    )
+    place_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("places.id", ondelete="SET NULL"), index=True
     )
     type: Mapped[MediaType] = mapped_column(
         Enum(MediaType, name="media_type", native_enum=True), nullable=False
@@ -71,3 +78,4 @@ class Media(Base):
 
     journey: Mapped["Journey"] = relationship(back_populates="media", foreign_keys=[journey_id])
     memory: Mapped["Memory | None"] = relationship(back_populates="media")
+    place: Mapped["Place | None"] = relationship(back_populates="media")
