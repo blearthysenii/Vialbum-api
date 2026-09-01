@@ -16,4 +16,14 @@ class MapItem(BaseModel):
     subtitle: str | None = None
     date: Date | None = None
     thumbnail_url: HttpUrl | None = None
+    thumbnail_revision: str | None = None
     caption: str | None = None
+    location: str | None = None
+    journey_start_date: Date
+    journey_end_date: Date
+    memory_id: uuid.UUID | None = None
+    memory_title: str | None = None
+
+
+class MapThumbnail(BaseModel):
+    thumbnail_url: HttpUrl | None = None
