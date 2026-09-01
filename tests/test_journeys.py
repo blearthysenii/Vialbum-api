@@ -1,5 +1,11 @@
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
+from app.models.place import Place
+from tests.conftest import test_engine
 from tests.helpers import auth_headers, journey_payload, login_user, register_user
 
 
@@ -103,3 +109,97 @@ def test_cannot_update_another_users_journey(client: TestClient) -> None:
 def test_cannot_delete_another_users_journey(client: TestClient) -> None:
     journey_url, headers = another_user_scenario(client)
     assert client.delete(journey_url, headers=headers).status_code == 404
+
+
+PLACE = {
+    "provider": "geoapify",
+    "provider_place_id": "medina-1",
+    "display_name": "Medina, Al Madinah, Saudi Arabia",
+    "name": "Medina",
+    "locality": "Medina",
+    "region": "Al Madinah",
+    "country": "Saudi Arabia",
+    "country_code": "SA",
+    "latitude": "24.468600",
+    "longitude": "39.614200",
+}
+
+
+def test_create_assigns_normalized_place_and_coordinates(client: TestClient) -> None:
+    response = client.post(
+        "/journeys",
+        json={**journey_payload(), "destination": "old", "country": "old", "place": PLACE},
+        headers=authenticated_headers(client),
+    )
+    assert response.status_code == 201
+    journey = response.json()
+    assert journey["place_id"] == journey["place"]["id"]
+    assert journey["destination"] == "Medina"
+    assert journey["country"] == "Saudi Arabia"
+    assert journey["latitude"] == "24.468600"
+    assert journey["longitude"] == "39.614200"
+
+
+def test_place_assignment_deduplicates_provider_identity(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    for title in ("One", "Two"):
+        response = client.post(
+            "/journeys", json={**journey_payload(title), "place": PLACE}, headers=headers
+        )
+        assert response.status_code == 201
+    with Session(test_engine) as session:
+        assert session.scalar(select(func.count()).select_from(Place)) == 1
+
+
+def test_provider_identity_has_database_uniqueness(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    response = client.post("/journeys", json={**journey_payload(), "place": PLACE}, headers=headers)
+    assert response.status_code == 201
+    with Session(test_engine) as session:
+        duplicate = Place(
+            **{
+                **PLACE,
+                "latitude": PLACE["latitude"],
+                "longitude": PLACE["longitude"],
+            }
+        )
+        session.add(duplicate)
+        with pytest.raises(IntegrityError):
+            session.commit()
+
+
+def test_manual_coordinates_override_normalized_place(client: TestClient) -> None:
+    response = client.post(
+        "/journeys",
+        json={
+            **journey_payload(),
+            "place": PLACE,
+            "latitude": "24.500000",
+            "longitude": "39.700000",
+        },
+        headers=authenticated_headers(client),
+    )
+    assert response.status_code == 201
+    assert response.json()["latitude"] == "24.500000"
+    assert response.json()["place"]["latitude"] == "24.468600"
+
+
+def test_update_assigns_and_clears_place_without_erasing_labels(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    journey = create_journey(client, headers)
+    assigned = client.patch(f"/journeys/{journey['id']}", json={"place": PLACE}, headers=headers)
+    assert assigned.status_code == 200
+    cleared = client.patch(f"/journeys/{journey['id']}", json={"place": None}, headers=headers)
+    assert cleared.status_code == 200
+    payload = cleared.json()
+    assert payload["place_id"] is None
+    assert payload["place"] is None
+    assert payload["latitude"] is None
+    assert payload["longitude"] is None
+    assert payload["destination"] == "Medina"
+    assert payload["country"] == "Saudi Arabia"
+
+
+def test_cannot_assign_place_to_another_users_journey(client: TestClient) -> None:
+    journey_url, headers = another_user_scenario(client)
+    assert client.patch(journey_url, json={"place": PLACE}, headers=headers).status_code == 404
