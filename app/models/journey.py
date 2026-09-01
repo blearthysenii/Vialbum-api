@@ -12,6 +12,7 @@ from app.models.mixins import TimestampMixin
 if TYPE_CHECKING:
     from app.models.media import Media
     from app.models.memory import Memory
+    from app.models.place import Place
     from app.models.user import User
 
 
@@ -30,6 +31,9 @@ class Journey(TimestampMixin, Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    place_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("places.id", ondelete="SET NULL"), index=True
     )
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     destination: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -51,6 +55,7 @@ class Journey(TimestampMixin, Base):
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
 
     user: Mapped["User"] = relationship(back_populates="journeys")
+    place: Mapped["Place | None"] = relationship(back_populates="journeys")
     memories: Mapped[list["Memory"]] = relationship(
         back_populates="journey", cascade="all, delete-orphan", passive_deletes=True
     )
