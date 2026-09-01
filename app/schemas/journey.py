@@ -5,6 +5,7 @@ from decimal import Decimal
 from pydantic import Field, HttpUrl, field_validator, model_validator
 
 from app.schemas.common import IdentifiedSchema, OrmSchema
+from app.schemas.place import PlaceRead, PlaceSelection
 
 
 class JourneyBase(OrmSchema):
@@ -35,7 +36,7 @@ class JourneyBase(OrmSchema):
 
 
 class JourneyCreate(JourneyBase):
-    pass
+    place: PlaceSelection | None = None
 
 
 class JourneyUpdate(OrmSchema):
@@ -47,6 +48,7 @@ class JourneyUpdate(OrmSchema):
     description: str | None = None
     latitude: Decimal | None = Field(default=None, ge=-90, le=90, max_digits=9, decimal_places=6)
     longitude: Decimal | None = Field(default=None, ge=-180, le=180, max_digits=9, decimal_places=6)
+    place: PlaceSelection | None = None
 
     @field_validator("title", "destination", "country")
     @classmethod
@@ -71,6 +73,8 @@ class JourneyUpdate(OrmSchema):
 
 
 class JourneyRead(JourneyBase, IdentifiedSchema):
+    place_id: uuid.UUID | None
+    place: PlaceRead | None = None
     cover_media_id: uuid.UUID | None
     cover_media_url: HttpUrl | None = None
     updated_at: datetime

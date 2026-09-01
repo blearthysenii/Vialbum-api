@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.journey import Journey
 
@@ -21,13 +21,18 @@ class JourneyRepository:
     def list_for_user(self, user_id: uuid.UUID) -> list[Journey]:
         statement = (
             select(Journey)
+            .options(selectinload(Journey.place))
             .where(Journey.user_id == user_id)
             .order_by(Journey.created_at.desc(), Journey.id.desc())
         )
         return list(self.session.scalars(statement))
 
     def get_for_user(self, journey_id: uuid.UUID, user_id: uuid.UUID) -> Journey | None:
-        statement = select(Journey).where(Journey.id == journey_id, Journey.user_id == user_id)
+        statement = (
+            select(Journey)
+            .options(selectinload(Journey.place))
+            .where(Journey.id == journey_id, Journey.user_id == user_id)
+        )
         return self.session.scalar(statement)
 
     def update(self, journey: Journey, values: dict[str, Any]) -> Journey:
