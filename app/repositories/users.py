@@ -34,3 +34,7 @@ class UserRepository:
             return None
         self.session.refresh(user)
         return user
+
+    def delete(self, user: User) -> None:
+        self.session.delete(user)
+        self.session.commit()

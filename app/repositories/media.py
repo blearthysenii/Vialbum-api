@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -27,6 +28,20 @@ class MediaRepository:
             .order_by(Media.sort_order.asc(), Media.created_at.asc(), Media.id.asc())
         )
         return list(self.session.scalars(statement))
+
+    def list_for_user(self, user_id: uuid.UUID) -> list[Media]:
+        statement = (
+            select(Media)
+            .join(Journey, Journey.id == Media.journey_id)
+            .where(Journey.user_id == user_id)
+            .order_by(Media.created_at.asc(), Media.id.asc())
+        )
+        return list(self.session.scalars(statement))
+
+    def mark_deletion_pending(self, media: list[Media], timestamp: datetime) -> None:
+        for item in media:
+            item.deletion_pending_at = timestamp
+        self.session.commit()
 
     def get_for_journey(self, media_id: uuid.UUID, journey_id: uuid.UUID) -> Media | None:
         statement = (

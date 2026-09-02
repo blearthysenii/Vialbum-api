@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import EmailStr, Field
 
@@ -27,3 +28,8 @@ class LoginRequest(OrmSchema):
 class AccessToken(OrmSchema):
     access_token: str
     token_type: str = "bearer"
+
+
+class AccountDeletionRequest(OrmSchema):
+    confirmation: Literal["DELETE"]
+    password: str = Field(min_length=1, max_length=128)
