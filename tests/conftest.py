@@ -22,11 +22,13 @@ class FakeObjectStorage:
         self.objects: dict[str, bytes] = {}
         self.fail_upload = False
         self.fail_delete = False
+        self.deleted_keys: list[str] = []
 
     def reset(self) -> None:
         self.objects.clear()
         self.fail_upload = False
         self.fail_delete = False
+        self.deleted_keys.clear()
 
     def upload(self, *, key: str, body: object, content_type: str, content_length: int) -> None:
         if self.fail_upload:
@@ -36,7 +38,13 @@ class FakeObjectStorage:
     def delete(self, *, key: str) -> None:
         if self.fail_delete:
             raise RuntimeError("simulated delete failure")
+        self.deleted_keys.append(key)
         self.objects.pop(key, None)
+
+    def download_to(self, *, key: str, destination: object) -> None:
+        if key not in self.objects:
+            raise FileNotFoundError(key)
+        destination.write(self.objects[key])  # type: ignore[attr-defined]
 
     def create_read_url(self, *, key: str, expires_in: int) -> str:
         return f"https://private-storage.test/{key}?expires={expires_in}"

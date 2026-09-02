@@ -33,6 +33,12 @@ class StorageService:
         except Exception as exc:
             raise StorageOperationError("Photo storage is temporarily unavailable") from exc
 
+    def download_to(self, *, key: str, destination: BinaryIO) -> None:
+        try:
+            self.backend.download_to(key=key, destination=destination)
+        except Exception as exc:
+            raise StorageOperationError("Photo storage is temporarily unavailable") from exc
+
     def create_read_url(self, *, key: str) -> str:
         try:
             return self.backend.create_read_url(key=key, expires_in=self.read_url_expires_in)

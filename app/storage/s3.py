@@ -36,6 +36,9 @@ class S3ObjectStorage:
     def delete(self, *, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
+    def download_to(self, *, key: str, destination: BinaryIO) -> None:
+        self.client.download_fileobj(self.bucket, key, destination)
+
     def create_read_url(self, *, key: str, expires_in: int) -> str:
         return self.client.generate_presigned_url(
             "get_object",
