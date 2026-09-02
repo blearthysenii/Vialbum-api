@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +26,30 @@ class Settings(BaseSettings):
     place_search_result_limit: int = Field(default=6, ge=1, le=10)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="after")
+    def validate_production(self) -> "Settings":
+        if self.app_env.casefold() != "production":
+            return self
+        missing = [
+            name
+            for name, value in {
+                "DATABASE_URL": self.database_url,
+                "JWT_SECRET": self.jwt_secret,
+                "STORAGE_PROVIDER": self.storage_provider,
+                "S3_ENDPOINT_URL": self.s3_endpoint_url,
+                "S3_ACCESS_KEY_ID": self.s3_access_key_id,
+                "S3_SECRET_ACCESS_KEY": self.s3_secret_access_key,
+                "S3_BUCKET_NAME": self.s3_bucket_name,
+                "GEOAPIFY_API_KEY": self.geoapify_api_key,
+            }.items()
+            if not value
+        ]
+        if missing:
+            raise ValueError(f"Missing required production configuration: {', '.join(missing)}")
+        if self.debug:
+            raise ValueError("DEBUG must be false in production")
+        return self
 
     @property
     def sqlalchemy_database_url(self) -> str | None:
