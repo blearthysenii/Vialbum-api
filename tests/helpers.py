@@ -1,3 +1,5 @@
+import re
+
 from fastapi.testclient import TestClient
 
 
@@ -6,11 +8,14 @@ def register_user(
     *,
     email: str = "traveler@example.com",
     password: str = "a-strong-test-password",
+    username: str | None = None,
 ) -> dict[str, object]:
+    normalized_local = re.sub(r"[^a-z0-9_]", "_", email.strip().split("@", 1)[0].lower()).strip("_")
     response = client.post(
         "/auth/register",
         json={
             "email": email,
+            "username": username or normalized_local,
             "password": password,
             "first_name": "Vialbum",
             "last_name": "Traveler",
