@@ -8,6 +8,7 @@ from app.api.routes.memories import router as memories_router
 from app.api.routes.places import router as places_router
 from app.api.routes.search import router as search_router
 from app.api.routes.system import router as system_router
+from app.api.routes.users import router as users_router
 
 api_router = APIRouter()
 api_router.include_router(system_router)
@@ -18,3 +19,4 @@ api_router.include_router(map_router)
 api_router.include_router(memories_router)
 api_router.include_router(places_router)
 api_router.include_router(search_router)
+api_router.include_router(users_router)
