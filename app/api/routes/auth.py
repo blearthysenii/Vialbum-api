@@ -1,9 +1,23 @@
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.api.dependencies import CurrentUser, DatabaseSession, MediaStorage
-from app.schemas.user import AccessToken, AccountDeletionRequest, LoginRequest, UserCreate, UserRead
+from app.core.rate_limit import public_auth_rate_limit
+from app.schemas.user import (
+    AccessToken,
+    AccountDeletionRequest,
+    AccountExistsRequest,
+    AccountExistsResponse,
+    EmailExistsRequest,
+    EmailExistsResponse,
+    LoginRequest,
+    UserCreate,
+    UsernameExistsRequest,
+    UsernameExistsResponse,
+    UserRead,
+)
 from app.services.account import AccountService
 from app.services.auth import AuthService
+from app.services.users import UserService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -18,9 +32,42 @@ def login(payload: LoginRequest, session: DatabaseSession) -> AccessToken:
     return AuthService(session).login(payload)
 
 
+@router.post(
+    "/email-exists",
+    response_model=EmailExistsResponse,
+    dependencies=[Depends(public_auth_rate_limit())],
+)
+def email_exists(payload: EmailExistsRequest, session: DatabaseSession) -> EmailExistsResponse:
+    return EmailExistsResponse(exists=AuthService(session).email_exists(payload))
+
+
+@router.post(
+    "/username-exists",
+    response_model=UsernameExistsResponse,
+    dependencies=[Depends(public_auth_rate_limit())],
+)
+def username_exists(
+    payload: UsernameExistsRequest, session: DatabaseSession
+) -> UsernameExistsResponse:
+    return UsernameExistsResponse(exists=AuthService(session).username_exists(payload))
+
+
+@router.post(
+    "/account-exists",
+    response_model=AccountExistsResponse,
+    dependencies=[Depends(public_auth_rate_limit())],
+)
+def account_exists(
+    payload: AccountExistsRequest, session: DatabaseSession
+) -> AccountExistsResponse:
+    return AccountExistsResponse(exists=AuthService(session).account_exists(payload))
+
+
 @router.get("/me", response_model=UserRead)
-def me(current_user: CurrentUser) -> UserRead:
-    return UserRead.model_validate(current_user)
+def me(
+    current_user: CurrentUser, session: DatabaseSession, storage: MediaStorage
+) -> UserRead:
+    return UserService(session, storage).serialize(current_user)
 
 
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
