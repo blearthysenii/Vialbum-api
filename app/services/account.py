@@ -29,6 +29,8 @@ class AccountService:
             for key in (item.storage_key, item.display_storage_key, item.thumbnail_storage_key)
             if key
         }
+        if user.profile_photo_storage_key:
+            keys.add(user.profile_photo_storage_key)
         try:
             for key in sorted(keys):
                 self.storage.delete(key=key)
