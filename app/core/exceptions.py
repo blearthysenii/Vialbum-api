@@ -1,8 +1,9 @@
 class VialbumError(Exception):
     """Base exception for expected application errors."""
 
-    def __init__(self, detail: str) -> None:
+    def __init__(self, detail: str, *, code: str | None = None) -> None:
         self.detail = detail
+        self.code = code
         super().__init__(detail)
 
 
