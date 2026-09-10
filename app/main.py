@@ -18,7 +18,10 @@ app.include_router(api_router)
 
 @app.exception_handler(ConflictError)
 def conflict_error_handler(_request: Request, exc: ConflictError) -> JSONResponse:
-    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": exc.detail})
+    content = {"detail": exc.detail}
+    if exc.code:
+        content["code"] = exc.code
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=content)
 
 
 @app.exception_handler(ConfigurationError)
