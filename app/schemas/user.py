@@ -28,6 +28,7 @@ class UserRead(UserBase, IdentifiedSchema):
     bio: str | None = None
     location: str | None = None
     profile_photo_url: str | None = None
+    profile_cover_url: str | None = None
     updated_at: datetime
 
 

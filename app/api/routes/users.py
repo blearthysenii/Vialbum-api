@@ -39,3 +39,23 @@ def remove_profile_photo(
 ) -> Response:
     UserService(session, storage).remove_photo(current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/me/profile-cover", response_model=UserRead)
+async def upload_profile_cover(
+    current_user: CurrentUser,
+    session: DatabaseSession,
+    storage: MediaStorage,
+    file: Annotated[UploadFile, File()],
+) -> UserRead:
+    body = await file.read(get_settings().media_max_upload_bytes + 1)
+    service = UserService(session, storage)
+    return service.serialize(service.upload_cover(current_user, body))
+
+
+@router.delete("/me/profile-cover", status_code=status.HTTP_204_NO_CONTENT)
+def remove_profile_cover(
+    current_user: CurrentUser, session: DatabaseSession, storage: MediaStorage
+) -> Response:
+    UserService(session, storage).remove_cover(current_user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

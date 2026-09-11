@@ -207,6 +207,35 @@ def test_profile_photo_upload_replaces_and_remove_deletes_private_objects(
     assert me.json()["profile_photo_url"] is None
 
 
+def test_profile_cover_upload_replaces_and_remove_deletes_private_objects(
+    client: TestClient, fake_storage: object
+) -> None:
+    register_user(client)
+    token = login_user(client)
+    headers = auth_headers(token)
+    first = client.post(
+        "/users/me/profile-cover",
+        headers=headers,
+        files={"file": ("cover.jpg", b"\xff\xd8\xffcover", "image/jpeg")},
+    )
+    assert first.status_code == 200
+    assert first.json()["profile_cover_url"].startswith("https://private-storage.test/")
+    first_key = next(iter(fake_storage.objects))  # type: ignore[attr-defined]
+
+    second = client.post(
+        "/users/me/profile-cover",
+        headers=headers,
+        files={"file": ("replacement.jpg", b"\xff\xd8\xffreplacement", "image/jpeg")},
+    )
+    assert second.status_code == 200
+    assert first_key in fake_storage.deleted_keys  # type: ignore[attr-defined]
+
+    removed = client.delete("/users/me/profile-cover", headers=headers)
+    assert removed.status_code == 204
+    me = client.get("/auth/me", headers=headers)
+    assert me.json()["profile_cover_url"] is None
+
+
 def test_me_requires_token(client: TestClient) -> None:
     response = client.get("/auth/me")
     assert response.status_code == 401

@@ -23,6 +23,7 @@ class User(TimestampMixin, Base):
     bio: Mapped[str | None] = mapped_column(String(150), nullable=True)
     location: Mapped[str | None] = mapped_column(String(100), nullable=True)
     profile_photo_storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    profile_cover_storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     __table_args__ = (
         Index("uq_users_email_lower", func.lower(email), unique=True),

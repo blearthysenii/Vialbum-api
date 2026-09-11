@@ -31,6 +31,8 @@ class AccountService:
         }
         if user.profile_photo_storage_key:
             keys.add(user.profile_photo_storage_key)
+        if user.profile_cover_storage_key:
+            keys.add(user.profile_cover_storage_key)
         try:
             for key in sorted(keys):
                 self.storage.delete(key=key)
