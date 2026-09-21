@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Numeric, String, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, Index, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class Place(TimestampMixin, Base):
     __tablename__ = "places"
     __table_args__ = (
+        Index("ix_places_coordinates", "latitude", "longitude"),
         CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_places_latitude"),
         CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_places_longitude"),
         UniqueConstraint("provider", "provider_place_id", name="uq_places_provider_identity"),

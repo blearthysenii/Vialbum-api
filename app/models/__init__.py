@@ -3,6 +3,18 @@ from app.models.media import Media, MediaType
 from app.models.memory import Memory
 from app.models.place import Place
 from app.models.refresh_session import RefreshSession
+from app.models.saved_journey import SavedJourney
 from app.models.user import User
+from app.models.user_follow import UserFollow
 
-__all__ = ["Journey", "Media", "MediaType", "Memory", "Place", "RefreshSession", "User"]
+__all__ = [
+    "Journey",
+    "Media",
+    "MediaType",
+    "Memory",
+    "Place",
+    "RefreshSession",
+    "SavedJourney",
+    "User",
+    "UserFollow",
+]

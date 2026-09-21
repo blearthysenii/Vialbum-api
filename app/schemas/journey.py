@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import Field, HttpUrl, field_validator, model_validator
 
@@ -9,6 +10,7 @@ from app.schemas.place import PlaceRead, PlaceSelection
 
 
 class JourneyBase(OrmSchema):
+    visibility: Literal["private", "public"] = "private"
     title: str = Field(min_length=1, max_length=160)
     destination: str = Field(min_length=1, max_length=160)
     country: str = Field(min_length=1, max_length=100)
@@ -40,6 +42,7 @@ class JourneyCreate(JourneyBase):
 
 
 class JourneyUpdate(OrmSchema):
+    visibility: Literal["private", "public"] | None = None
     title: str | None = Field(default=None, min_length=1, max_length=160)
     destination: str | None = Field(default=None, min_length=1, max_length=160)
     country: str | None = Field(default=None, min_length=1, max_length=100)
@@ -62,7 +65,14 @@ class JourneyUpdate(OrmSchema):
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "JourneyUpdate":
-        required_fields = {"title", "destination", "country", "start_date", "end_date"}
+        required_fields = {
+            "title",
+            "destination",
+            "country",
+            "start_date",
+            "end_date",
+            "visibility",
+        }
         has_null = any(
             field in self.model_fields_set and getattr(self, field) is None
             for field in required_fields

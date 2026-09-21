@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, String, Text, Uuid
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 class Journey(TimestampMixin, Base):
     __tablename__ = "journeys"
     __table_args__ = (
+        CheckConstraint("visibility IN ('private', 'public')", name="ck_journeys_visibility"),
+        Index("ix_journeys_discover", "visibility", "created_at", "id"),
         CheckConstraint("end_date >= start_date", name="ck_journeys_date_order"),
         CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_journeys_latitude"),
         CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_journeys_longitude"),
@@ -34,6 +36,9 @@ class Journey(TimestampMixin, Base):
     )
     place_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("places.id", ondelete="SET NULL"), index=True
+    )
+    visibility: Mapped[str] = mapped_column(
+        String(7), nullable=False, default="private", server_default="private"
     )
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     destination: Mapped[str] = mapped_column(String(160), nullable=False)

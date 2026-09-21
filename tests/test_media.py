@@ -312,3 +312,91 @@ def test_photo_rejects_memory_from_another_journey_and_user(client: TestClient) 
     ).json()
     url = f"/journeys/{journey['id']}/media/{photo['id']}"
     assert client.patch(url, json={"memory_id": memory["id"]}, headers=headers).status_code == 422
+
+
+def test_cover_defaults_preserves_photo_order_and_falls_back_on_delete(client: TestClient) -> None:
+    headers, journey = setup_owner(client)
+    base = f"/journeys/{journey['id']}"
+    photos = [upload_photo(client, journey["id"], headers).json() for _ in range(5)]
+    assert client.get(base, headers=headers).json()["cover_media_id"] == photos[0]["id"]
+    before = client.get(f"{base}/media", headers=headers).json()
+    selected = client.patch(f"{base}/cover/{photos[4]['id']}", headers=headers)
+    assert selected.status_code == 200
+    assert selected.json()["cover_media_id"] == photos[4]["id"]
+    assert client.get(f"{base}/media", headers=headers).json() == before
+    upload_photo(client, journey["id"], headers)
+    assert client.get(base, headers=headers).json()["cover_media_id"] == photos[4]["id"]
+    expected = next(
+        photo["id"]
+        for photo in client.get(f"{base}/media", headers=headers).json()
+        if photo["id"] != photos[4]["id"]
+    )
+    assert client.delete(f"{base}/media/{photos[4]['id']}", headers=headers).status_code == 204
+    assert client.get(base, headers=headers).json()["cover_media_id"] == expected
+    assert client.patch(f"{base}/cover/{photos[4]['id']}", headers=headers).status_code == 404
+    remaining = client.get(f"{base}/media", headers=headers).json()
+    for photo in remaining:
+        assert client.delete(f"{base}/media/{photo['id']}", headers=headers).status_code == 204
+    empty = client.get(base, headers=headers).json()
+    assert empty["cover_media_id"] is None
+    assert empty["cover_media_url"] is None
+
+
+def test_cover_rejects_other_user_and_unavailable_or_non_photo_media(client: TestClient) -> None:
+    from uuid import UUID
+
+    from sqlalchemy.orm import Session
+
+    from app.models.media import Media, MediaType
+    from tests.conftest import test_engine
+
+    owner, journey = setup_owner(client)
+    photo = upload_photo(client, journey["id"], owner).json()
+    other, _ = setup_owner(client, email="other-cover@example.com")
+    url = f"/journeys/{journey['id']}/cover/{photo['id']}"
+    assert client.patch(url, headers=other).status_code == 404
+    with Session(test_engine) as session:
+        media = session.get(Media, UUID(photo["id"]))
+        media.type = MediaType.video
+        session.commit()
+    assert client.patch(url, headers=owner).status_code == 422
+    from datetime import UTC, datetime
+
+    with Session(test_engine) as session:
+        media = session.get(Media, UUID(photo["id"]))
+        media.type = MediaType.photo
+        media.deletion_pending_at = datetime.now(UTC)
+        session.commit()
+    assert client.patch(url, headers=owner).status_code == 422
+
+
+def test_new_cover_reaches_public_profile_saved_discover_and_owner_cards(
+    client: TestClient,
+) -> None:
+    from tests.test_discover import account, journey
+
+    owner_user, owner = account(client, "cover-owner@example.com")
+    _, viewer = account(client, "cover-viewer@example.com")
+    item = journey(client, owner, "public")
+    base = f"/journeys/{item['id']}"
+    photos = [upload_photo(client, item["id"], owner).json() for _ in range(5)]
+    original_order = [
+        photo["id"]
+        for photo in client.get(f"/discover/journeys/{item['id']}", headers=viewer).json()["photos"]
+    ]
+    assert client.post(f"{base}/save", headers=viewer).status_code == 204
+    selected = client.patch(f"{base}/cover/{photos[4]['id']}", headers=owner).json()
+    for path in (
+        "/discover/journeys",
+        "/saved/journeys",
+        f"/users/{owner_user['id']}/public-journeys",
+    ):
+        card = client.get(path, headers=viewer).json()["items"][0]
+        assert card["cover_media_id"] == photos[4]["id"]
+        assert card["cover_media_url"] == selected["cover_media_url"]
+    owner_card = client.get("/journeys", headers=owner).json()[0]
+    assert owner_card["cover_media_id"] == photos[4]["id"]
+    detail = client.get(f"/discover/journeys/{item['id']}", headers=viewer).json()
+    assert [photo["id"] for photo in detail["photos"]] == original_order
+    assert client.patch(base, json={"visibility": "private"}, headers=owner).status_code == 200
+    assert client.get(f"/discover/journeys/{item['id']}", headers=viewer).status_code == 404

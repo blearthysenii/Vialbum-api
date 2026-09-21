@@ -172,7 +172,9 @@ class MediaService:
 
     def set_cover(self, user: User, journey_id: uuid.UUID, media_id: uuid.UUID) -> Journey:
         journey = self._journey(user, journey_id)
-        self.get(user, journey_id, media_id)
+        media = self.get(user, journey_id, media_id)
+        if media.type != MediaType.photo or media.deletion_pending_at is not None:
+            raise InvalidInputError("Cover must be an available journey photo")
         return self.journeys.update(journey, {"cover_media_id": media_id})
 
     def serialize(self, media: Media) -> MediaRead:

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.journey import Journey
-from app.models.media import Media
+from app.models.media import Media, MediaType
 
 
 class MediaRepository:
@@ -16,6 +16,10 @@ class MediaRepository:
     def create(self, *, values: dict[str, Any]) -> Media:
         media = Media(**values)
         self.session.add(media)
+        self.session.flush()
+        journey = self.session.get(Journey, media.journey_id)
+        if journey is not None and journey.cover_media_id is None:
+            journey.cover_media_id = self.first_photo_id(journey.id)
         self.session.commit()
         self.session.refresh(media)
         return media
@@ -58,8 +62,25 @@ class MediaRepository:
         self.session.refresh(media)
         return media
 
+    def first_photo_id(
+        self, journey_id: uuid.UUID, excluding: uuid.UUID | None = None
+    ) -> uuid.UUID | None:
+        statement = select(Media.id).where(
+            Media.journey_id == journey_id,
+            Media.type == MediaType.photo,
+            Media.deletion_pending_at.is_(None),
+        )
+        if excluding is not None:
+            statement = statement.where(Media.id != excluding)
+        return self.session.scalar(
+            statement.order_by(
+                Media.sort_order.asc(), Media.created_at.asc(), Media.id.asc()
+            ).limit(1)
+        )
+
     def delete(self, media: Media, journey: Journey) -> None:
         if journey.cover_media_id == media.id:
-            journey.cover_media_id = None
+            journey.cover_media_id = self.first_photo_id(journey.id, excluding=media.id)
+            self.session.flush()
         self.session.delete(media)
         self.session.commit()
